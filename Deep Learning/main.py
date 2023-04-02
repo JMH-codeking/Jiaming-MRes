@@ -1,6 +1,6 @@
 
 import pathlib
-from data_extraction import matlab_data_extraction
+from data_processing import matlab_data_extraction
 
 def main():
     current_path = str(pathlib.Path(__file__).parent)
@@ -9,5 +9,5 @@ def main():
         = matlab_data_extraction(signal_name)
 
 if __name__ == "__main__":
-    matlab_data_extraction(11)
+    
     main()
