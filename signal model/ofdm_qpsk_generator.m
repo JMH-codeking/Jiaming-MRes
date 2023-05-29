@@ -13,7 +13,7 @@ function s_gen = ofdm_qpsk_generator( ...
     real_part(real_part == 2) = -1;
     imagine_part(imagine_part == 2) = -1;
     
-    s_gen = real_part + imagine_part * 1j;
+    s_gen = (real_part + imagine_part * 1j) * exp(1j * 2*pi * fc);
 
 end
 
