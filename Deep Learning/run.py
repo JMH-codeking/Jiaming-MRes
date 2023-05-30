@@ -31,15 +31,7 @@ def train_valid(
     else:
         assert 'Wrong Name'
     
-    signal_net = skip( 
-        num_input_channels=1,
-        num_output_channels=1,
-        num_channels_down=[16, 16, 16],
-        num_channels_up=[16, 16, 16],
-        num_channels_skip=[16, 16, 16],
-        need_sigmoid = False,
-        act_fun="Tanh",
-    ).type(torch.float32)
+
 
     channel_net = Channel_ana()
 

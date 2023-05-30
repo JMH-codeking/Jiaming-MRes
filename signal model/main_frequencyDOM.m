@@ -62,12 +62,11 @@ for i = 1:30
 end
 
 %% plot graphs
-y_sub = reshape(y(1, :, :), 16*4, 1);
-y_sub_norm = reshape(y_norm(1, :, :), 16*4, 1);
-y_sub_norm_n = reshape(y_norm_n(1, :, :), 16*4, 1);
-x_sub = reshape(x_nk(1, :, :), 16*4, 1);
+y_sub = reshape(y(:, 2, :), 10000*4, 1);
+y_sub_norm = reshape(y_norm(:, 2, :), 10000*4, 1);
+y_sub_norm_n = reshape(y_norm_n(:, 2, :), 10000*4, 1);
+x_sub = reshape(x_nk(:, 2, :), 10000*4, 1);
 
-scatterplot (x_sub)
 scatterplot (y_sub_norm)
 title('normalised y origin')
 scatterplot (y_sub_norm_n)

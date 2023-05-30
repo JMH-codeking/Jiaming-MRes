@@ -10,11 +10,11 @@ class LSTM_net(nn.Module):
         super(LSTM_net, self).__init__()
         self.lstm1 = nn.LSTM(
             input_size = 2,
-            hidden_size = 128, # let h initial be 
+            hidden_size = 8, # let h initial be 
             num_layers = 6,
             bidirectional = True,
             batch_first = True,
-            dropout = 0.5
+            dropout = 0.2
         )
         self.lstm2 = nn.LSTM(
             input_size = 8,
@@ -24,11 +24,12 @@ class LSTM_net(nn.Module):
             batch_first = True,
             dropout = 0.5
         )
-        self.conv1 = nn.Conv1d(in_channels=4, out_channels=8, kernel_size=4)
-        self.deconv1 = nn.ConvTranspose1d(8, 4, kernel_size=4)
-        self.fc1 = nn.Linear(in_features=256, out_features=64)
-        self.fc2 = nn.Linear(in_features=64, out_features=16)
-        self.fc3 = nn.Linear(in_features=16, out_features=4)
+        self.conv1 = nn.Conv1d(in_channels=4, out_channels=8, kernel_size=2)
+        self.conv2 = nn.Conv1d(8, 16, 2)
+        self.deconv1 = nn.ConvTranspose1d(16, 8, kernel_size=2)
+        self.deconv2 = nn.ConvTranspose1d(8, 4, kernel_size=2)
+        self.fc1 = nn.Linear(in_features=16, out_features=8)
+        self.fc2 = nn.Linear(in_features=8, out_features=4)
     def forward(self, x):
         batch_size, seq_len, input_len = x.shape
         h0 = Variable(torch.randn((2 * self.lstm1.num_layers, batch_size, self.lstm1.hidden_size)))
@@ -36,10 +37,11 @@ class LSTM_net(nn.Module):
         x, (h1, c1) = self.lstm1(x, (h0, c0))
         x = torch.sigmoid(x)
         x = self.conv1(x)
+        x = self.conv2(x)
         x = self.deconv1(x)
+        x = self.deconv2(x)
         x = self.fc1(x)
         x = self.fc2(x)
-        x = self.fc3(x)
         x= torch.tanh(x)
         # x, (h3, c3) = self.lstm2(x, (h1, c1))
         # x = self.fc1(x)

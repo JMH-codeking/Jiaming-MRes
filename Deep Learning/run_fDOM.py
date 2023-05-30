@@ -31,7 +31,7 @@ def train_valid(
 
     optimizer = torch.optim.Adam (
         model.parameters(),
-        lr=0.0001,
+        lr=0.001,
         weight_decay=0.00001,
     )
     historyl = hl.History()
@@ -54,7 +54,7 @@ def train_valid(
         total_test = 0
         train_num = 0
         for step, (x_data, x_label) in enumerate(train_data):
-            out = model(x_data)
+            out, _ = model(x_data)
 
             _, predicted_train = torch.max(out,2)
             total_train += x_label.size(0) * x_label.size(1) 
@@ -75,7 +75,7 @@ def train_valid(
         model.eval()
         with torch.no_grad():
             for step, (y_data, y_label) in enumerate(test_data):
-                _out = model(y_data)
+                _out, _ = model(y_data)
                 _, predicted_test = torch.max(_out,2)
                 total_test += y_label.size(0) * y_label.size(1) 
                 acc_test += (predicted_test == y_label).sum().item()
@@ -112,11 +112,12 @@ def main():
     Nt = 4
     Nr = Nt
     M = 16
-    symbol_num = 1000
+    symbol_num = 10000
 
     _channel_train, _x, _y, _y_norm, h = matlab_data_extraction_frequencyDOM('train', 30)
     _channel_test, _X, _Y, _Y_norm, h = matlab_data_extraction_frequencyDOM('test', 30)
 
+    
     '''note that here, _x and _y are sampled in frequency domain 
 
         -> each Nr for _y corresponds to each Nt for _x
@@ -136,27 +137,28 @@ def main():
     `channel number x subcarrier number x number of symbols x ...`
     '''
 
-    _x_label = _x_label.permute(0, 2, 1, 3)
-    _y_real = _y_real.permute(0, 2, 1, 3, 4)
+    _x_label = _x_label.permute(2, 0, 1, 3)
+    _y_real = _y_real.permute(2, 0, 1, 3, 4)
 
-    _X_label = _X_label.permute(0, 2, 1, 3)
-    _Y_real = _Y_real.permute(0, 2, 1, 3, 4)
+    _X_label = _X_label.permute(2, 0, 1, 3)
+    _Y_real = _Y_real.permute(2, 0, 1, 3, 4)
 
     
 
     ofdm_carrier_cnt = 0
-    # _y_real = _y_real[ofdm_carrier_cnt].reshape(30*symbol_num, Nr, 2)
-    # _x_label = _x_label[ofdm_carrier_cnt].reshape(30*symbol_num, Nr)
+    _y_real = _y_real[ofdm_carrier_cnt]
+    _x_label = _x_label[ofdm_carrier_cnt]
 
-    print (_y_real.shape)
-    print (_x_label.shape)
 
+    _Y_real = _Y_real[ofdm_carrier_cnt]
+    _X_label = _X_label[ofdm_carrier_cnt]
+    
     train = DataLoader(
         dataset = TensorDataset(
-            _y_real[0, 1], 
-            _x_label[0, 1]
+            _y_real[0], 
+            _x_label[0]
         ),
-        batch_size = 10,
+        batch_size = 16,
         shuffle = False,
         drop_last=True
     )
@@ -165,17 +167,26 @@ def main():
     ofdm_carrier_cnt = 0
     test = DataLoader(
         dataset = TensorDataset(
-            _Y_real[2, 1], 
-            _X_label[2, 1]
+            _Y_real, 
+            _X_label
         ),
-        batch_size = 10,
+        batch_size = 16,
         shuffle = False,
         drop_last=True
     )
 
-
-
+    from model.transformers import Encoder
+    len_traj = 4 
+    batch_size = 16
+    d_obs = 2
+    d_embed = 256 # embedding dimension
+    n_heads = 8
+    d_k = 16
+    d_hidden = 64
+    d_class = 4
+    n_layers = 6 # Encoder内含
     net = LSTM_net()
+    encoder = Encoder(d_obs, d_embed, d_class, d_k, d_hidden, n_heads, n_layers)
  
     # constellation_data, mapped_constellation, x_transmitted, channel_matrix_nodoppler, \
     #     channel_matrix_withdoppler, received_data_no_noise, \
@@ -206,7 +217,7 @@ def main():
     train_valid(
         train,
         test,
-        net,
+        encoder,
         num_epoch = 10000,
     )
 
