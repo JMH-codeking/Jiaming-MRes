@@ -17,7 +17,6 @@ def train_valid(
 ):
     if torch.cuda.is_available():
         device = torch.device('cuda') 
-
     if _loss == "mse":
         loss_function = nn.MSELoss()
     elif _loss == "cross_entropy":
@@ -176,8 +175,8 @@ def main():
     ofdm_carrier_cnt = 0
     test = DataLoader(
         dataset = TensorDataset(
-            _Y_real, 
-            _X_label
+            _Y_real[1], 
+            _X_label[1],
         ),
         batch_size = 16,
         shuffle = False,
@@ -194,10 +193,14 @@ def main():
     d_hidden = 64
     d_class = 4
     n_layers = 6 # Encoder内含
-    net = LSTM_net()
+    lstmnet = LSTM_net()
     encoder = Encoder(d_obs, d_embed, d_class, d_k, d_hidden, n_heads, n_layers)
-    if torch.cuda.device_count()>1:
-        encoder = torch.nn.DataParallel(encoder.cuda())
+    if torch.cuda.is_available():
+        if torch.cuda.device_count()>1:
+            encoder = torch.nn.DataParallel(encoder.cuda())
+        else:
+            encoder = encoder.cuda()
+
 
     # constellation_data, mapped_constellation, x_transmitted, channel_matrix_nodoppler, \
     #     channel_matrix_withdoppler, received_data_no_noise, \
@@ -215,7 +218,7 @@ def main():
     #     constellation_data,
     #     Nt,
     #     Nt,
-    #     M,
+    #     M, 
     #     cnt= 10,
     # )
 
