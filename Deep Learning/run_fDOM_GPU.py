@@ -17,6 +17,9 @@ def train_valid(
 ):
     if torch.cuda.is_available():
         device = torch.device('cuda') 
+    else:
+        device = torch.device('cpu')
+
     if _loss == "mse":
         loss_function = nn.MSELoss()
     elif _loss == "cross_entropy":
@@ -188,7 +191,7 @@ def main():
     batch_size = 16
     d_obs = 2
     d_embed = 256 # embedding dimension
-    n_heads = 8
+    n_heads = 16
     d_k = 16
     d_hidden = 64
     d_class = 4
