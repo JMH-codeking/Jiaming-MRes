@@ -5,7 +5,10 @@ import torch.nn.functional as F
 
 
 class Embedding(nn.Module):
-    '''将轨迹序列映射到隐空间'''
+    '''embedding layer -> linear mapping
+    
+    '''
+    
     def __init__(self, inpt_dim, embed_dim):
         super(Embedding, self).__init__()
         self.fc = nn.Linear(inpt_dim, embed_dim)
@@ -40,7 +43,7 @@ class MultiHeadAttention(nn.Module):
 
     def forward(self, x):
         # q: [batch_size x len_q x d_model], k: [batch_size x len_k x d_model], v: [batch_size x len_k x d_model]
-        residual, batch_size = x, x.size(0) # 残差跨层连接
+        residual, batch_size = x, x.size(0) # residual connections
         
         # q_s = k_s = v_s: [batch_size, n_heads, len_q, d_k]
         q_s = self.W_Q(x).view(batch_size, -1, self.n_heads, self.d_k).transpose(1,2)
@@ -49,15 +52,15 @@ class MultiHeadAttention(nn.Module):
         
         # context: [batch_size, n_heads, len_q, d_k]
         # attn: [batch_size, n_heads, len_q(=len_k), len_k(=len_q)]
-        context, attn = self.DotProduct(q_s, k_s, v_s) # context是attn✖V
-        # contiguous()的功能类似deepcopy
+        context, attn = self.DotProduct(q_s, k_s, v_s) # context是attn x V
+
         context = context.transpose(1, 2).contiguous().view(batch_size, -1, self.n_heads * self.d_k) # context: [batch_size x len_q x n_heads * d_k] 最后一个维度是将8个head concat起来，维度依然512
         
         output = self.fc(context) # [batch_size, len_q, d_embed]
         return self.layer_norm(output + residual), attn # output: [batch_size, len_q, d_model]
 
 class PoswiseFeedForwardNet(nn.Module):
-    # 该模块也可用linear+ReLU实现
+    
     def __init__(self, d_embed, d_hidden):
         super(PoswiseFeedForwardNet, self).__init__()
         self.conv1 = nn.Conv1d(in_channels=d_embed, out_channels=d_hidden, kernel_size=1)
@@ -81,8 +84,9 @@ class EncoderLayer(nn.Module):
         return x, attn
 
 class Encoder(nn.Module):
-    '''
-    using transformer encoder to classify sequential data
+    '''using transformer encoder to classify sequential data 
+        -> argmax after linear
+
     '''
     def __init__(self, d_obs, d_embed, d_class, d_k, d_hidden, n_heads, n_layers):
         super(Encoder, self).__init__()
