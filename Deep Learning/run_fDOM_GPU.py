@@ -29,10 +29,10 @@ def train_valid(
     else:
         assert 'Wrong Name'
 
-    # if torch.backends.mps.is_available():
-    #     device = torch.device('mps')
-    # else:
-    #     device = torch.device('cpu')
+    if torch.backends.mps.is_available():
+        device = torch.device('cuda')
+    else:
+        device = torch.device('cpu')
 
     optimizer = torch.optim.Adam (
         model.parameters(),
@@ -94,6 +94,7 @@ def train_valid(
         if (epoch+1) % 1 == 0:    
             print (f'-----Epoch {epoch + 1}-----')
             print (f'train_loss: {train_loss: .5f}')
+            print (f'train acc: {100*acc_train / total_train :.2f}')
             print (f'test acc: {100*acc_test / total_test :.2f}%' )
 
         historyl.log(
