@@ -33,6 +33,8 @@ def train_valid(
         device = torch.device('cuda')
     else:
         device = torch.device('cpu')
+    # if torch.backends.mps.is_available():
+        # device = torch.device ('mps')
 
     optimizer = torch.optim.Adam (
         model.parameters(),
@@ -130,7 +132,7 @@ def main():
     symbol_num = 1000
 
     _channel_train, _x, _y, _y_norm, h = matlab_data_extraction_frequencyDOM('train', 30)
-    _channel_test, _X, _Y, _Y_norm, h = matlab_data_extraction_frequencyDOM('test', 30)
+    _channel_test, _X, _Y, _Y_norm, h = matlab_data_extraction_frequencyDOM('test', 10)
 
     
     '''note that here, _x and _y are sampled in frequency domain 
@@ -142,9 +144,9 @@ def main():
     _, _x_label = complex2real_fDOM(_x, M, Nr, symbol_num, 30) 
     # dont need data in x, x is for labelling and classification
     _y_real, _ = complex2real_fDOM(_y_norm, M, Nr, symbol_num, 30) 
-    _, _X_label = complex2real_fDOM(_X, M, Nr, symbol_num, 30) 
+    _, _X_label = complex2real_fDOM(_X, M, Nr, symbol_num, 10) 
     # dont need data in x, x is for labelling and classification
-    _Y_real, _ = complex2real_fDOM(_Y_norm, M, Nr, symbol_num, 30) 
+    _Y_real, _ = complex2real_fDOM(_Y_norm, M, Nr, symbol_num, 10) 
     # dont need label in y
 
     '''swap data into carrier-different shape
@@ -165,8 +167,8 @@ def main():
     _x_label = _x_label[ofdm_carrier_cnt].reshape(30*symbol_num, Nr)
 
 
-    _Y_real = _Y_real[ofdm_carrier_cnt].reshape(30*symbol_num, Nr, 2)
-    _X_label = _X_label[ofdm_carrier_cnt].reshape(30*symbol_num, Nr)
+    _Y_real = _Y_real[ofdm_carrier_cnt].reshape(10*symbol_num, Nr, 2)
+    _X_label = _X_label[ofdm_carrier_cnt].reshape(10*symbol_num, Nr)
     
     train = DataLoader(
         dataset = TensorDataset(
@@ -200,16 +202,15 @@ def main():
     d_hidden = 64
     d_class = 4
     n_layers = 6 # Encoder内含
-    lstmnet = LSTM_net()
     encoder = Encoder(d_obs, d_embed, d_class, d_k, d_hidden, n_heads, n_layers)
     if torch.cuda.is_available():
         if torch.cuda.device_count()>1:
             encoder = torch.nn.DataParallel(encoder.cuda())
-            lstmnet = torch.nn.DataParallel(lstmnet.cuda())
         else:
             encoder = encoder.cuda()
-            lstmnet = lstmnet.cuda()
-
+    if torch.backends.mps.is_available():
+        device = torch.device ('mps')
+        # encoder = encoder.to(device)
 
     # constellation_data, mapped_constellation, x_transmitted, channel_matrix_nodoppler, \
     #     channel_matrix_withdoppler, received_data_no_noise, \
@@ -240,7 +241,6 @@ def main():
     train_valid(
         train,
         test,
-        # lstmnet,
         encoder,
         num_epoch=10000,
     )
