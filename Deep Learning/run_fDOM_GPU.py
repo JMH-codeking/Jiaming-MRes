@@ -62,8 +62,7 @@ def train_valid(
             x_data = x_data.to(device)
             x_label = x_label.to(device)
 
-            out, _ = model(x_data)
-
+            out = model(x_data)
             _, predicted_train = torch.max(out,2)
             total_train += x_label.size(0) * x_label.size(1) 
             acc_train += (predicted_train == x_label).sum().item()
@@ -83,10 +82,12 @@ def train_valid(
         model.eval()
         with torch.no_grad():
             for step, (y_data, y_label) in enumerate(test_data):
+
+                print (y_data.shape)
                 y_data = y_data.to(device)
                 y_label = y_label.to(device)
 
-                _out, _ = model(y_data)
+                _out = model(y_data)
                 _, predicted_test = torch.max(_out,2)
                 total_test += y_label.size(0) * y_label.size(1) 
                 acc_test += (predicted_test == y_label).sum().item()
@@ -124,7 +125,7 @@ def main():
     Nt = 4
     Nr = Nt
     M = 16
-    symbol_num = 10000
+    symbol_num = 1000
 
     _channel_train, _x, _y, _y_norm, h = matlab_data_extraction_frequencyDOM('train', 30)
     _channel_test, _X, _Y, _Y_norm, h = matlab_data_extraction_frequencyDOM('test', 30)
@@ -158,19 +159,19 @@ def main():
     
 
     ofdm_carrier_cnt = 0
-    _y_real = _y_real[ofdm_carrier_cnt]
-    _x_label = _x_label[ofdm_carrier_cnt]
+    _y_real = _y_real[ofdm_carrier_cnt].reshape(30*symbol_num, Nr, 2)
+    _x_label = _x_label[ofdm_carrier_cnt].reshape(30*symbol_num, Nr)
 
 
-    _Y_real = _Y_real[ofdm_carrier_cnt]
-    _X_label = _X_label[ofdm_carrier_cnt]
+    _Y_real = _Y_real[ofdm_carrier_cnt].reshape(30*symbol_num, Nr, 2)
+    _X_label = _X_label[ofdm_carrier_cnt].reshape(30*symbol_num, Nr)
     
     train = DataLoader(
         dataset = TensorDataset(
-            _y_real[0], 
-            _x_label[0]
+            _y_real, 
+            _x_label
         ),
-        batch_size = 16,
+        batch_size = 3,
         shuffle = False,
         drop_last=True
     )
@@ -179,10 +180,10 @@ def main():
     ofdm_carrier_cnt = 0
     test = DataLoader(
         dataset = TensorDataset(
-            _Y_real[1], 
-            _X_label[1],
+            _Y_real, 
+            _X_label,
         ),
-        batch_size = 16,
+        batch_size = 3,
         shuffle = False,
         drop_last=True
     )
@@ -235,7 +236,7 @@ def main():
     train_valid(
         train,
         test,
-        encoder,
+        lstmnet,
         num_epoch = 10000,
     )
 
