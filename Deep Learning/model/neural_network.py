@@ -30,9 +30,13 @@ class LSTM_net(nn.Module):
         self.fc1 = nn.Linear(in_features=4, out_features=8)
         self.fc2 = nn.Linear(in_features=8, out_features=4)
     def forward(self, x):
+        if torch.cuda.is_available():
+            device = torch.device('cuda')
+        else:
+            device = torch.device('cpu')
         seq_len, batch_size, input_len = x.shape
-        h0 = Variable(torch.randn((2 * self.lstm1.num_layers, batch_size, self.lstm1.hidden_size)))
-        c0 = Variable(torch.randn((2 * self.lstm1.num_layers, batch_size, self.lstm1.hidden_size)))
+        h0 = Variable(torch.randn((2 * self.lstm1.num_layers, batch_size, self.lstm1.hidden_size))).to(device)
+        c0 = Variable(torch.randn((2 * self.lstm1.num_layers, batch_size, self.lstm1.hidden_size))).to(device)
         x, (h1, c1) = self.lstm1(x, (h0, c0))
         x = torch.sigmoid(x)
         x = self.conv1(x)

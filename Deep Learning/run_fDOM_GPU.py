@@ -203,8 +203,10 @@ def main():
     if torch.cuda.is_available():
         if torch.cuda.device_count()>1:
             encoder = torch.nn.DataParallel(encoder.cuda())
+            lstmnet = torch.nn.DataParallel(lstmnet.cuda())
         else:
             encoder = encoder.cuda()
+            lstmnet = lstmnet.cuda()
 
 
     # constellation_data, mapped_constellation, x_transmitted, channel_matrix_nodoppler, \
