@@ -62,7 +62,8 @@ def train_valid(
             x_data = x_data.to(device)
             x_label = x_label.to(device)
 
-            out = model(x_data)
+            out, _ = model(x_data)
+            out = out.permute(2, 0, 1)
             _, predicted_train = torch.max(out,2)
             total_train += x_label.size(0) * x_label.size(1) 
             acc_train += (predicted_train == x_label).sum().item()
@@ -86,7 +87,8 @@ def train_valid(
                 y_data = y_data.to(device)
                 y_label = y_label.to(device)
 
-                _out = model(y_data)
+                _out, _ = model(y_data)
+                _out = _out.permute(2, 0, 1)
                 _, predicted_test = torch.max(_out,2)
                 total_test += y_label.size(0) * y_label.size(1) 
                 acc_test += (predicted_test == y_label).sum().item()
@@ -188,8 +190,8 @@ def main():
     )
 
     from model.transformers import Encoder
-    len_traj = 4 
-    batch_size = 16
+    len_traj = 3 
+    batch_size = 4
     d_obs = 2
     d_embed = 256 # embedding dimension
     n_heads = 16
@@ -238,6 +240,7 @@ def main():
         train,
         test,
         lstmnet,
+        encoder,
         num_epoch = 10000,
     )
 
