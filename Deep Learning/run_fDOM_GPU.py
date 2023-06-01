@@ -63,7 +63,7 @@ def train_valid(
             x_label = x_label.to(device)
 
             out, _ = model(x_data)
-            out = out.permute(2, 0, 1)
+            out = out.permute(2, 1, 0)
             _, predicted_train = torch.max(out,2)
             total_train += x_label.size(0) * x_label.size(1) 
             acc_train += (predicted_train == x_label).sum().item()
@@ -88,7 +88,7 @@ def train_valid(
                 y_label = y_label.to(device)
 
                 _out, _ = model(y_data)
-                _out = _out.permute(2, 0, 1)
+                _out = _out.permute(2, 1, 0)
                 _, predicted_test = torch.max(_out,2)
                 total_test += y_label.size(0) * y_label.size(1) 
                 acc_test += (predicted_test == y_label).sum().item()
@@ -239,9 +239,9 @@ def main():
     train_valid(
         train,
         test,
-        lstmnet,
+        # lstmnet,
         encoder,
-        num_epoch = 10000,
+        num_epoch=10000,
     )
 
 if __name__ == "__main__":
