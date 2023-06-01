@@ -63,13 +63,14 @@ def train_valid(
             x_label = x_label.to(device)
 
             out, _ = model(x_data)
-            out = out.permute(2, 1, 0)
-            x_label = x_label.permute(1, 0)
             _, predicted_train = torch.max(out,2)
+
             total_train += x_label.size(0) * x_label.size(1) 
             acc_train += (predicted_train == x_label).sum().item()
 
             optimizer.zero_grad()
+            out = out.permute(1, 2, 0)
+            x_label = x_label.permute(1, 0)
             loss = loss_function(out, x_label)
             loss.backward()
             optimizer.step()
@@ -89,10 +90,10 @@ def train_valid(
                 y_label = y_label.to(device)
 
                 _out, _ = model(y_data)
-                _out = _out.permute(2, 1, 0)
-                y_label = y_label.permute(1, 0)
                 _, predicted_test = torch.max(_out,2)
                 total_test += y_label.size(0) * y_label.size(1) 
+                _out = _out.permute(1, 2, 0)
+                y_label = y_label.permute(1, 0)
                 acc_test += (predicted_test == y_label).sum().item()
 
         if (epoch+1) % 1 == 0:    
