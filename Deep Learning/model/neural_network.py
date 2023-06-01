@@ -35,8 +35,8 @@ class LSTM_net(nn.Module):
         else:
             device = torch.device('cpu')
         seq_len, batch_size, input_len = x.shape
-        h0 = Variable(torch.randn((2 * self.lstm1.num_layers, batch_size, self.lstm1.hidden_size))).to(device)
-        c0 = Variable(torch.randn((2 * self.lstm1.num_layers, batch_size, self.lstm1.hidden_size))).to(device)
+        h0 = Variable(torch.randn((2 * self.lstm1.num_layers, batch_size, self.lstm1.hidden_size)).to(device))
+        c0 = Variable(torch.randn((2 * self.lstm1.num_layers, batch_size, self.lstm1.hidden_size)).to(device))
         x, (h1, c1) = self.lstm1(x, (h0, c0))
         x = torch.sigmoid(x)
         x = self.conv1(x)

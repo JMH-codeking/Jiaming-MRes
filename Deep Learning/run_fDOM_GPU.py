@@ -83,7 +83,6 @@ def train_valid(
         with torch.no_grad():
             for step, (y_data, y_label) in enumerate(test_data):
 
-                print (y_data.shape)
                 y_data = y_data.to(device)
                 y_label = y_label.to(device)
 
