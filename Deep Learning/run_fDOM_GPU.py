@@ -92,8 +92,6 @@ def train_valid(
                 _out, _ = model(y_data)
                 _, predicted_test = torch.max(_out,2)
                 total_test += y_label.size(0) * y_label.size(1) 
-                _out = _out.permute(1, 2, 0)
-                y_label = y_label.permute(1, 0)
                 acc_test += (predicted_test == y_label).sum().item()
 
         if (epoch+1) % 1 == 0:    
