@@ -259,6 +259,8 @@ for epoch in range (1000):
 
         acc_train_av = sum(acc_train_list) / len(acc_train_list)
         acc_test_av = sum(acc_test_list) / len(acc_test_list)
+        print (f'average loss for training is: {acc_train_av}')
+        print (f'average loss for testing is: {acc_test_av}')
 
         historyl.log(
             train_cnt,
