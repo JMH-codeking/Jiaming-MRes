@@ -135,7 +135,11 @@ class BiLSTM(nn.Module):
         super(BiLSTM, self).__init__()
         self.hidden_size = hidden_size
         self.lstm = nn.LSTM(
-            input_size, hidden_size, bidirectional=True, num_layers = 3
+            input_size, 
+            hidden_size, 
+            bidirectional=True, 
+            num_layers = 3, 
+            dropout = 0.5
         )
         self.fc = nn.Linear(hidden_size * 2, num_classes) # times 2 because of bidirection
 
@@ -155,7 +159,6 @@ hidden_size = 20 # hidden state size for LSTM cell
 num_classes = 4 # number of classes for classification
 
 # Instantiate the model
-model = BiLSTM(input_size, hidden_size, num_classes)
 # y_samples = torch.tensor(y_lstm_n, dtype = torch.float32).permute(0, 2, 1, 3)
 # label = torch.tensor(x, dtype = torch.long)
 # Example input: three sequences, each sequence is 4 complex numbers (each represented as a 2D vector)
@@ -163,26 +166,35 @@ model = BiLSTM(input_size, hidden_size, num_classes)
 # x = torch.randn(30, 4, input_size)
 # Forward pass
 
+if torch.cuda.is_available():
+    device = torch.device('cuda')
+else:
+    device = torch.device('cpu')
+model = BiLSTM(input_size, hidden_size, num_classes).to(device)
 
+if torch.cuda.device_count>1:
+    model = torch.nn.DataParallel(model)
+else:
+    pass
 y_train = torch.tensor(
     y_train,
     dtype = torch.float32
-)
+).to(device)
 
 y_test = torch.tensor(
     y_test,
     dtype = torch.float32
-)
+).to(device)
 
 label_train = torch.tensor(
     label_train,
     dtype = torch.long
-)
+).to(device)
 
 label_test = torch.tensor(
     label_test,
     dtype = torch.float32
-)
+).to(device)
 optimiser = torch.optim.Adam(
     model.parameters(),
     lr = 0.001,
@@ -197,7 +209,7 @@ window_size = 40
 train_cnt = 0
 acc_train_list = list()
 acc_test_list = list()
-for epoch in range (100):
+for epoch in range (1000):
 
     print (f'For Epoch {epoch}: ------------------')
     for _y_train, _label_train, _y_test, _label_test in zip(
@@ -245,8 +257,6 @@ for epoch in range (100):
         '''record acc for train and test        
         '''
 
-        _s = sum(acc_train_list)
-        print (f' ----- ------ ------- {_s}')
         acc_train_av = sum(acc_train_list) / len(acc_train_list)
         acc_test_av = sum(acc_test_list) / len(acc_test_list)
 
@@ -263,6 +273,8 @@ for epoch in range (100):
             canvasl.draw_plot(
                 historyl['acc_test_average']
             )
+    from matplotlib import pyplot as plt
+    plt.save(f'./epoch{epoch}.png')
 
 torch.save(model.state_dict(), './symbol_detection.pt')
         
