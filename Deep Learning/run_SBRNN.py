@@ -146,8 +146,8 @@ class BiLSTM(nn.Module):
     def forward(self, x):
         self.lstm.flatten_parameters()
         seq_len, batch_size, _ = x.size()
-        h0 = torch.randn(2*self.lstm.num_layers, batch_size, self.hidden_size).to(x.device) # 2 for bidirection 
-        c0 = torch.randn(2*self.lstm.num_layers, batch_size, self.hidden_size).to(x.device)
+        h0 = torch.zeros(2*self.lstm.num_layers, batch_size, self.hidden_size).to(x.device) # 2 for bidirection 
+        c0 = torch.zeros(2*self.lstm.num_layers, batch_size, self.hidden_size).to(x.device)
 
         out, _ = self.lstm(x, (h0, c0))
         out = self.fc(out[:, -1, :])
