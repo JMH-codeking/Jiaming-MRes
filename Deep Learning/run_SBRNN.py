@@ -112,7 +112,7 @@ class BiLSTM(nn.Module):
         super(BiLSTM, self).__init__()
         self.hidden_size = hidden_size
         self.lstm = nn.LSTM(
-            input_size, hidden_size, bidirectional=True, num_layers = 3
+            input_size, hidden_size, bidirectional=True, num_layers = 3, dropout = 0.5
         )
         self.fc = nn.Linear(hidden_size * 2, num_classes) # times 2 because of bidirection
 
