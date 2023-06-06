@@ -138,7 +138,7 @@ class BiLSTM(nn.Module):
             input_size, 
             hidden_size, 
             bidirectional=True, 
-            num_layers = 3, 
+            num_layers = 6, 
             dropout = 0.5
         )
         self.fc = nn.Linear(hidden_size * 2, num_classes) # times 2 because of bidirection
@@ -279,7 +279,7 @@ for epoch in range (1000):
                 historyl['acc_test_average']
             )
     from matplotlib import pyplot as plt
-    plt.save(f'./epoch{epoch}.png')
+    plt.savefig(f'./epoch{epoch}.png')
 
 torch.save(model.state_dict(), './symbol_detection.pt')
         
