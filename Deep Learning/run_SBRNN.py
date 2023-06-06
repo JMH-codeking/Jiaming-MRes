@@ -55,7 +55,7 @@ for i in range(1, channel_num+1):
     h.append(
         data['ISAC_data']['h'][0][0]
     )
-    
+
 _channel['time_delay'] = _tau
 _channel['doppler_shift'] = _fdoppler
 _channel['_Txsteering'] = _Txsteering
@@ -95,38 +95,15 @@ for n in range (carrier_num):
                         np.imag(y_norm[i, j, n, k]),
                     ]
                 )
-                
+
 y_carrier0, label_carrier0 = y_lstm_isac[0], label_isac[0]
 
-y_train = y_carrier0[0:3900]
-y_test = y_carrier0[3900:]
+y_train = y_carrier0
+label_train = label_carrier0
 
-label_train = label_carrier0[0:3900]
-label_test = label_carrier0[3900:]
 print (f'training data shape: {y_train.shape}')
 print (f'training label shape{label_train.shape}')
 
-
-# # change y into real + imag
-# y_lstm = np.zeros(shape=(training_samples, Nr, cluster, 2))
-# y_lstm_n = np.zeros(shape = (training_samples, Nr, cluster, 2))
-# for i in range (training_samples):
-#     for j in range (Nr):
-#         for k in range (cluster):
-#             y_lstm[i, j, k] = np.array(
-#                 [
-#                     np.real(y[i, j, k]),
-#                     np.imag(y[i, j, k])
-#                 ]
-#             )
-#             y_lstm_n[i, j, k] = np.array(
-#                 [
-#                     np.real(y_n[i, j, k]), 
-#                     np.imag(y_n[i, j, k])
-#                 ]
-#             )
-
-# print (y_lstm.shape)
 import torch
 from torch import nn
 
@@ -135,16 +112,11 @@ class BiLSTM(nn.Module):
         super(BiLSTM, self).__init__()
         self.hidden_size = hidden_size
         self.lstm = nn.LSTM(
-            input_size, 
-            hidden_size, 
-            bidirectional=True, 
-            num_layers = 6, 
-            dropout = 0.5
+            input_size, hidden_size, bidirectional=True, num_layers = 3
         )
         self.fc = nn.Linear(hidden_size * 2, num_classes) # times 2 because of bidirection
 
     def forward(self, x):
-        self.lstm.flatten_parameters()
         seq_len, batch_size, _ = x.size()
         h0 = torch.zeros(2*self.lstm.num_layers, batch_size, self.hidden_size).to(x.device) # 2 for bidirection 
         c0 = torch.zeros(2*self.lstm.num_layers, batch_size, self.hidden_size).to(x.device)
@@ -160,42 +132,18 @@ hidden_size = 20 # hidden state size for LSTM cell
 num_classes = 4 # number of classes for classification
 
 # Instantiate the model
-# y_samples = torch.tensor(y_lstm_n, dtype = torch.float32).permute(0, 2, 1, 3)
-# label = torch.tensor(x, dtype = torch.long)
-# Example input: three sequences, each sequence is 4 complex numbers (each represented as a 2D vector)
-# The dimensions are (sequence length, batch size, input size)
-# x = torch.randn(30, 4, input_size)
-# Forward pass
+model = BiLSTM(input_size, hidden_size, num_classes)
 
-if torch.cuda.is_available():
-    device = torch.device('cuda')
-else:
-    device = torch.device('cpu')
-model = BiLSTM(input_size, hidden_size, num_classes).to(device)
-
-if torch.cuda.device_count()>1:
-    model = torch.nn.DataParallel(model)
-else:
-    pass
 y_train = torch.tensor(
     y_train,
     dtype = torch.float32
-).to(device)
-
-y_test = torch.tensor(
-    y_test,
-    dtype = torch.float32
-).to(device)
+)
 
 label_train = torch.tensor(
     label_train,
     dtype = torch.long
-).to(device)
+)
 
-label_test = torch.tensor(
-    label_test,
-    dtype = torch.float32
-).to(device)
 optimiser = torch.optim.Adam(
     model.parameters(),
     lr = 0.001,
@@ -209,19 +157,17 @@ historyl = hl.History()
 window_size = 40
 train_cnt = 0
 acc_train_list = list()
-acc_test_list = list()
-for epoch in range (1000):
 
-    print (f'For Epoch {epoch}: ------------------')
-    for _y_train, _label_train, _y_test, _label_test in zip(
-        y_train, label_train, y_test, label_test
+for epoch in range (100):
+
+    print (f'For Epoch {epoch+1}: ------------------')
+    for _y_train, _label_train in zip(
+        y_train, label_train
     ):
         train_cnt += 1
         acc_train = 0
-        acc_test = 0
-        acc_num_train = 0 # same for training and test
-        # loss_sample = 0
-        # loss_num_sample = 0
+        acc_num_train = 0
+
         for cnt in range (symbol_num - window_size + 1):
             model.train() # train with y_train
             X = _y_train[cnt:cnt + window_size]
@@ -238,47 +184,25 @@ for epoch in range (1000):
             _loss = loss(out, Y)
             _loss.backward()
             optimiser.step()
-            # loss_sample += _loss.item()
-            # loss_num_sample += 1
-
-            model.eval() # evaluate with y_test
-            x = _y_test[cnt:cnt + window_size]
-            y = _label_test[cnt:cnt + window_size]
-            out_test = model(x)
-
-            _, predicted = torch.max(out_test, 1)
-            acc_test = acc_test + (predicted == y).sum().item()
 
         acc_train_list.append(acc_train / acc_num_train)
-        acc_test_list.append(acc_test / acc_num_train)
 
-        
-        # print (f'loss for the sample {train_cnt} is: {loss_sample / loss_num_sample:.2f}')
-        
         '''record acc for train and test        
         '''
 
         acc_train_av = sum(acc_train_list) / len(acc_train_list)
-        acc_test_av = sum(acc_test_list) / len(acc_test_list)
         print (f'    - - training step {train_cnt} - -')
         print (f'   average accuracy for training is: {acc_train_av:.2f}')
-        print (f'   average accuracy for testing is: {acc_test_av:.2f}\n')
-
         historyl.log(
             train_cnt,
-            acc_train_average = acc_train_av,
-            acc_test_average = acc_test_av
+            acc_train_average = acc_train_av
         )
-        
+
         with canvasl:
             canvasl.draw_plot(
                 historyl['acc_train_average']
             )
-            canvasl.draw_plot(
-                historyl['acc_test_average']
-            )
+
     from matplotlib import pyplot as plt
     plt.savefig(f'./epoch{epoch}.png')
-
 torch.save(model.state_dict(), './symbol_detection.pt')
-        
