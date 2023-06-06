@@ -146,8 +146,8 @@ class BiLSTM(nn.Module):
     def forward(self, x):
         self.lstm.flatten_parameters()
         seq_len, batch_size, _ = x.size()
-        h0 = torch.zeros(2*self.lstm.num_layers, batch_size, self.hidden_size).to(x.device) # 2 for bidirection 
-        c0 = torch.zeros(2*self.lstm.num_layers, batch_size, self.hidden_size).to(x.device)
+        h0 = torch.randn(2*self.lstm.num_layers, batch_size, self.hidden_size).to(x.device) # 2 for bidirection 
+        c0 = torch.randn(2*self.lstm.num_layers, batch_size, self.hidden_size).to(x.device)
 
         out, _ = self.lstm(x, (h0, c0))
         out = self.fc(out[:, -1, :])
@@ -262,8 +262,7 @@ for epoch in range (1000):
         acc_test_av = sum(acc_test_list) / len(acc_test_list)
         print (f'    - - training step {train_cnt} - -')
         print (f'   average loss for training is: {acc_train_av:.2f}')
-        print (f'   average loss for testing is: {acc_test_av:.2f}')
-        print (f'    - - end for step {train_cnt} - -\n')
+        print (f'   average loss for testing is: {acc_test_av:.2f}\n')
 
         historyl.log(
             train_cnt,
