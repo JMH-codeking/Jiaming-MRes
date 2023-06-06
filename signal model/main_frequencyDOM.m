@@ -1,13 +1,13 @@
 clc; clear;
 %% signal initialisation
-for i = 1:30
+for i = 1:4000
     theta = pi / 3;
     phi = theta; % steering angles
     Nr = 4; % receive antennas
-    Nt = 4; % transmit antennas
+    Nt = 1; % transmit antennas
     Q = 1; % one user
     M = 16; % number of subcarrier
-    K = 10000; % 100 OFDM symbols
+    K = 200; % 100 OFDM symbols
     fc = 3e11; % assume central frequency is 3 x 10^8 MHz
     lambda = 3e8 / fc;
     d = lambda / 2;
@@ -20,7 +20,7 @@ for i = 1:30
     % assume LOS -> and target static -> we know the doppler shift at first
     theta_l = pi / 3; % angle of departure and arrival
     b_l = complex(randn(L, 1), randn(L, 1)); % attenuation for each multi-path
-    tau_l = 0.01 * round(rand(L, 1), 2); % time delay for each multi-path
+    tau_l = 1e-6 * round(rand(L, 1), 2); % time delay for each multi-path
     
     data = randi([0 3], M * Nt * K, 1);
 
@@ -57,17 +57,17 @@ for i = 1:30
     ISAC_data.h = h;
     ISAC_data.channel = struct("time_delay", tau_l, "f_doppler", f_doppler_l, "Tx_steeringangle", phi, "Rx_steeringangle", theta);
     % data save
-    path = '../Deep Learning/train_data/ISAC_QPSK_OFDM_' + string(i);
+    path = '../Deep Learning/test_data/ISAC_QPSK_OFDM_' + string(i);
     save(path, "ISAC_data", "data")
 end
 
-%% plot graphs
-y_sub = reshape(y(:, 2, :), 10000*4, 1);
-y_sub_norm = reshape(y_norm(:, 2, :), 10000*4, 1);
-y_sub_norm_n = reshape(y_norm_n(:, 2, :), 10000*4, 1);
-x_sub = reshape(x_nk(:, 2, :), 10000*4, 1);
-
-scatterplot (y_sub_norm)
-title('normalised y origin')
-scatterplot (y_sub_norm_n)
-title('normalised y with noise')
+% %% plot graphs
+% y_sub = reshape(y(:, 2, :), 10000*4, 1);
+% y_sub_norm = reshape(y_norm(:, 2, :), 10000*4, 1);
+% y_sub_norm_n = reshape(y_norm_n(:, 2, :), 10000*4, 1);
+% x_sub = reshape(x_nk(:, 2, :), 10000*4, 1);
+% 
+% scatterplot (y_sub_norm)
+% title('normalised y origin')
+% scatterplot (y_sub_norm_n)
+% title('normalised y with noise')
