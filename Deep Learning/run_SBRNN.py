@@ -263,7 +263,7 @@ for epoch in range (1000):
         print (f'    - - training step {train_cnt} - -')
         print (f'   average loss for training is: {acc_train_av:.2f}')
         print (f'   average loss for testing is: {acc_test_av:.2f}')
-        print (f'    - - end for step {train_cnt} - -')
+        print (f'    - - end for step {train_cnt} - -\n')
 
         historyl.log(
             train_cnt,
