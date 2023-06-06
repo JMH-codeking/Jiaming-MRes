@@ -144,6 +144,7 @@ class BiLSTM(nn.Module):
         self.fc = nn.Linear(hidden_size * 2, num_classes) # times 2 because of bidirection
 
     def forward(self, x):
+        self.lstm.flatten_parameters()
         seq_len, batch_size, _ = x.size()
         h0 = torch.zeros(2*self.lstm.num_layers, batch_size, self.hidden_size).to(x.device) # 2 for bidirection 
         c0 = torch.zeros(2*self.lstm.num_layers, batch_size, self.hidden_size).to(x.device)
