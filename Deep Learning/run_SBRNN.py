@@ -172,7 +172,7 @@ else:
     device = torch.device('cpu')
 model = BiLSTM(input_size, hidden_size, num_classes).to(device)
 
-if torch.cuda.device_count>1:
+if torch.cuda.device_count()>1:
     model = torch.nn.DataParallel(model)
 else:
     pass
