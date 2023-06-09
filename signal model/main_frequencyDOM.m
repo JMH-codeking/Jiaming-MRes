@@ -1,13 +1,13 @@
 clc; clear;
 %% signal initialisation
-for i = 1:4000
+for i = 1:100
     theta = pi / 3;
     phi = theta; % steering angles
-    Nr = 4; % receive antennas
-    Nt = 1; % transmit antennas
+    Nr = 16; % receive antennas
+    Nt = 16; % transmit antennas
     Q = 1; % one user
     M = 16; % number of subcarrier
-    K = 200; % 100 OFDM symbols
+    K = 1000; % 1001 OFDM symbols
     fc = 3e11; % assume central frequency is 3 x 10^8 MHz
     lambda = 3e8 / fc;
     d = lambda / 2;
@@ -57,7 +57,7 @@ for i = 1:4000
     ISAC_data.h = h;
     ISAC_data.channel = struct("time_delay", tau_l, "f_doppler", f_doppler_l, "Tx_steeringangle", phi, "Rx_steeringangle", theta);
     % data save
-    path = '../Deep Learning/test_data/ISAC_QPSK_OFDM_' + string(i);
+    path = '../Deep Learning/train_data/ISAC_QPSK_OFDM_' + string(i);
     save(path, "ISAC_data", "data")
 end
 

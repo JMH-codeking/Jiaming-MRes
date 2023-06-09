@@ -202,7 +202,7 @@ def main():
     d_hidden = 64
     d_class = 4
     n_layers = 6 # Encoder内含
-    encoder = Encoder(d_obs, d_embed, d_class, d_k, d_hidden, n_heads, n_layers)
+  
     if torch.cuda.is_available():
         if torch.cuda.device_count()>1:
             encoder = torch.nn.DataParallel(encoder.cuda())

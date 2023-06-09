@@ -5,7 +5,7 @@ import torch
 import pathlib
 
 def complex2real_fDOM(
-    data, # complex data with shape [cnt, carrier number, OFDM symbol number, Nr]
+    data, # complex data with shape [channel_indice, OFDM symbol number, carrier_num, Nr]
     M,
     Nr,
     symbol_num,

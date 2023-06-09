@@ -101,5 +101,5 @@ class Encoder(nn.Module):
             y, attention = layer(y)
             attentions.append(attention)
 
-        out = F.log_softmax(self.fc(y), dim=-1)
+        out = F.log_softmax(self.fc(y[:, -1, :]), dim=-1)
         return out, attentions
