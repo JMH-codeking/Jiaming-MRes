@@ -2,8 +2,6 @@ import torch
 import numpy as np
 from data_processing import *
 import scipy.io as spio
-from torch.nn import functional as F
-from model.transformers import Encoder
 import torch
 import numpy as np
 len_traj = 40
@@ -15,15 +13,10 @@ d_k = 16
 d_hidden = 64
 d_class = 4
 n_layers = 6 # Encoder内含
-if torch.backends.mps.is_available():
-    device = torch.device('mps')
-elif torch.cuda.is_available():
+if torch.cuda.is_available():
     device = torch.device('cuda')
 else:
     device = torch.device('cpu')
-encoder = Encoder(d_obj, d_embed, d_class, d_k, d_hidden, n_heads, n_layers)
-x = torch.randn(30, 4, 2)
-y, _ = encoder(x)
 def mapping_qpsk (
     data
 ):
@@ -50,7 +43,7 @@ def cross_entropy(y_true,y_pred):
 
 Nr = 4
 carrier_num = 16
-symbol_num = 200
+symbol_num = 100
 channel_num = 1000
 
 _channel = {}
@@ -146,11 +139,19 @@ X = torch.tensor(
     dtype = torch.float32
 ).permute(1, 4, 0, 2, 3)
 
-X_noisy_train = X_noisy[0:900].contiguous().view(-1, 2, 16, 900).to(device)
-X_train = X[0:900].contiguous().view(-1, 2, 16, 900).to(device)
+X_noisy_train = X_noisy[0:900]
+X_train = X[0:900]
+from torch.utils.data import DataLoader, TensorDataset
 
-X_noisy_test = X_noisy[900:].contiguous().view(-1, 2, 16, 100).to(device)
-X_test = X[900:].contiguous().view(-1, 2, 16, 100).to(device)
+train = DataLoader(
+    dataset=TensorDataset(X_noisy_train, X_train),
+    batch_size=50,
+    shuffle = True,
+    drop_last = True
+)
+
+X_noisy_test = X_noisy[950:].contiguous().view(-1, 2, 16, 50).to(device)
+X_test = X[950:].contiguous().view(-1, 2, 16, 50).to(device)
 import torch.nn as nn
 import torch.optim as optim
 class UNet(nn.Module):
@@ -158,8 +159,8 @@ class UNet(nn.Module):
         super(UNet, self).__init__()
         
         # Encoder
-        self.enc_conv1 = nn.Conv2d(input_channels, 64, kernel_size=3, padding=1)
-        self.enc_conv2 = nn.Conv2d(64, 64, kernel_size=3, padding=1)
+        self.enc_conv1 = nn.Conv2d(input_channels, 32, kernel_size=3, padding=1)
+        self.enc_conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
         self.enc_pool = nn.MaxPool2d(kernel_size=2, stride=2)
         
         # Bottleneck
@@ -168,8 +169,8 @@ class UNet(nn.Module):
         # Decoder
         self.dec_upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
         self.dec_conv1 = nn.Conv2d(192, 64, kernel_size=3, padding=1)
-        self.dec_conv2 = nn.Conv2d(64, 64, kernel_size=3, padding=1)
-        self.dec_conv3 = nn.Conv2d(64, output_channels, kernel_size=3, padding=1)
+        self.dec_conv2 = nn.Conv2d(64, 32, kernel_size=3, padding=1)
+        self.dec_conv3 = nn.Conv2d(32, output_channels, kernel_size=3, padding=1)
         
         self.relu = nn.ReLU()
 
@@ -208,17 +209,22 @@ print (f'original MSE loss on test data: {criterion (X_noisy_test, X_test)}')
 # Training loop
 num_epochs = 10000
 for epoch in range(num_epochs):
+    train_loss_epoch = 0
+    for step, (_X, _Y) in enumerate(train):
+        _X = _X.contiguous().view(-1, 2, 16, train.batch_size).to(device)
+        _Y = _Y.contiguous().view(-1, 2, 16, train.batch_size).to(device)
     # Forward pass
-    outputs = model(X_noisy_train)
-    loss = criterion(outputs, X_train)
+        outputs = model(_X)
+        loss = criterion(outputs, _Y)
+        train_loss_epoch += loss
 
-    # Backward and optimize
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
+        # Backward and optimize
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
 
     if (epoch+1) % 1 == 0:
-        print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}')
+            print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {train_loss_epoch / (step+1):.4f}')
     
     historyl.log(
         epoch,
