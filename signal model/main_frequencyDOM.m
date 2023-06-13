@@ -1,13 +1,13 @@
 clc; clear;
 %% signal initialisation
-for i = 1:100
+for i = 1:1000
     theta = pi / 3;
     phi = theta; % steering angles
-    Nr = 16; % receive antennas
-    Nt = 16; % transmit antennas
+    Nr = 4; % receive antennas
+    Nt = 1; % transmit antennas
     Q = 1; % one user
     M = 16; % number of subcarrier
-    K = 1000; % 1001 OFDM symbols
+    K = 200; % 1000 OFDM symbols
     fc = 3e11; % assume central frequency is 3 x 10^8 MHz
     lambda = 3e8 / fc;
     d = lambda / 2;
@@ -32,7 +32,7 @@ for i = 1:100
     h = zeros(K, M, Nr, Nt);
     
     %% signal sampling in frequency domain
-    % here, the nth subcarrier and kth OFDM symbol of Nt TX antenans
+    % here, the nth subcarrier and kth OFDM symbol of Nt Tx antenans
     % corresponds to -> nth subcarrier and kth OFDM symbol of Nr Rx antennas
     for q = 1:Q
         for k = 1:K
@@ -44,20 +44,21 @@ for i = 1:100
                     * steering_vec_r * steering_vec_t.' * x_hat_nk;
                 h(k, n, :, :) = b_l * exp(-1j * 2*pi * n* fc * tau_l) * exp(1j * 2*pi * Ts * k * f_doppler_l) ...
                     * steering_vec_r * steering_vec_t.';
-                y_n(k, n, :) = y(k, n, :) + 0.01 * complex(randn(1, 1, Nr), randn(1, 1, Nr)); 
+                y_n(k, n, :) = y(k, n, :) + 1 * complex(randn(1, 1, Nr), randn(1, 1, Nr)); 
             end
         end
     end
     y_norm = y / max(abs(y(:)));
     y_norm_n = y_n / max(abs(y_n(:)));
     ISAC_data.y = y;
+    ISAC_data.y_n = y_n;
     ISAC_data.y_norm = y_norm;
     ISAC_data.y_norm_n = y_norm_n;
     ISAC_data.x = x_nk;
     ISAC_data.h = h;
-    ISAC_data.channel = struct("time_delay", tau_l, "f_doppler", f_doppler_l, "Tx_steeringangle", phi, "Rx_steeringangle", theta);
+    ISAC_data.channel = struct("attenuation", b_l, "time_delay", tau_l, "f_doppler", f_doppler_l, "Tx_steeringangle", phi, "Rx_steeringangle", theta);
     % data save
-    path = '../Deep Learning/train_data/ISAC_QPSK_OFDM_' + string(i);
+    path = '../Deep Learning/SIMO_data/0dB/ISAC_QPSK_OFDM_' + string(i);
     save(path, "ISAC_data", "data")
 end
 
