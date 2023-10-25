@@ -13,10 +13,13 @@ d_k = 16
 d_hidden = 64
 d_class = 4
 n_layers = 6 # Encoder内含
+
 if torch.cuda.is_available():
     device = torch.device('cuda')
 else:
     device = torch.device('cpu')
+if torch.backends.mps.is_available():
+    device = torch.device('mps')
 def mapping_qpsk (
     data
 ):
@@ -31,15 +34,6 @@ def mapping_qpsk (
         return 2
     else:
         return 3
-    
-def cross_entropy(y_true,y_pred):
-    C=0
-    # one-hot encoding
-    for col in range(y_true.shape[-1]):
-        y_pred[col] = y_pred[col] if y_pred[col] < 1 else 0.99999
-        y_pred[col] = y_pred[col] if y_pred[col] > 0 else 0.00001
-        C+=y_true[col]*torch.log(y_pred[col])+(1-y_true[col])*torch.log(1-y_pred[col])
-    return -C
 
 Nr = 4
 carrier_num = 16
@@ -60,7 +54,7 @@ _y_n =list()
 h = list()
 
 for i in range(1, channel_num+1):
-    path = f'./SIMO_data/0dB/ISAC_QPSK_OFDM_{i}.mat'
+    path = f'./SIMO_data/2dBTrial/ISAC_QPSK_OFDM_{i}.mat'
     data = spio.loadmat(path)
     _tau.append(
         data['ISAC_data']['channel'][0][0]['time_delay'][0][0][0]
@@ -102,9 +96,8 @@ _channel['_Txsteering'] = _Txsteering
 _channel['_Rxsteering'] = _Rxsteering
 
 x_simo, _y, y_simo, h = np.array(_x), np.array(_y), np.array(_y_norm), np.array(h)
-y_simo_n = np.array(_y_norm_n)
-
-
+y_simo_n = np.array(_y_n)
+_x = np.array(_x)
 
 y_simo_isac = np.zeros(shape = (carrier_num, channel_num, symbol_num, Nr, 2))
 y_simo_isac_org =  np.zeros(shape = (carrier_num, channel_num, symbol_num, Nr, 2))
@@ -124,8 +117,8 @@ for n in range (carrier_num):
                 )
 
                 y_simo_isac_org[n, i, j, k] = np.array([
-                    np.real(y_simo[i, j, n, k]),
-                    np.imag(y_simo[i, j, n, k])
+                    np.real(_y[i, j, n, k]),
+                    np.imag(_y[i, j, n, k])
                 ])
 
 
@@ -139,8 +132,10 @@ X = torch.tensor(
     dtype = torch.float32
 ).permute(1, 4, 0, 2, 3)
 
-X_noisy_train = X_noisy[0:900]
-X_train = X[0:900]
+_idx = int(0.8 * channel_num)
+print (channel_num, _idx)
+X_noisy_train = X_noisy[0: _idx]
+X_train = X[0: _idx]
 from torch.utils.data import DataLoader, TensorDataset
 
 train = DataLoader(
@@ -150,8 +145,15 @@ train = DataLoader(
     drop_last = True
 )
 
-X_noisy_test = X_noisy[950:].contiguous().view(-1, 2, 16, 50).to(device)
-X_test = X[950:].contiguous().view(-1, 2, 16, 50).to(device)
+X_noisy_test = X_noisy[_idx:]
+X_test = X[_idx:]
+
+test = DataLoader(
+    dataset=TensorDataset(X_noisy_test, X_test),
+    batch_size = 10,
+    shuffle = True,
+    drop_last=True
+)
 import torch.nn as nn
 import torch.optim as optim
 class UNet(nn.Module):
@@ -172,21 +174,21 @@ class UNet(nn.Module):
         self.dec_conv2 = nn.Conv2d(64, 32, kernel_size=3, padding=1)
         self.dec_conv3 = nn.Conv2d(32, output_channels, kernel_size=3, padding=1)
         
-        self.relu = nn.ReLU()
+        self.tanh = nn.Tanh()
 
     def forward(self, x):
         # Encoder
-        enc1 = self.relu(self.enc_conv1(x))
-        enc2 = self.relu(self.enc_conv2(enc1))
+        enc1 = self.tanh(self.enc_conv1(x))
+        enc2 = self.tanh(self.enc_conv2(enc1))
         enc_pool = self.enc_pool(enc2)
 
         # Bottleneck
-        bottleneck = self.relu(self.bottleneck_conv(enc_pool))
+        bottleneck = self.tanh(self.bottleneck_conv(enc_pool))
 
         # Decoder
         dec_upsample = self.dec_upsample(bottleneck)
-        dec1 = self.relu(self.dec_conv1(torch.cat([dec_upsample, enc2], dim=1)))
-        dec2 = self.relu(self.dec_conv2(dec1))
+        dec1 = self.tanh(self.dec_conv1(torch.cat([dec_upsample, enc2], dim=1)))
+        dec2 = self.tanh(self.dec_conv2(dec1))
         dec3 = self.dec_conv3(dec2)
         
         return dec3
@@ -194,6 +196,7 @@ class UNet(nn.Module):
 # Initialize model, criterion, and optimizer
 input_channels = 2  # Real and imaginary parts
 output_channels = 2
+print (device)
 model = UNet(input_channels, output_channels).to(device=device)
 if torch.cuda.is_available():
     if torch.cuda.device_count()>1:
@@ -205,35 +208,68 @@ import hiddenlayer as hl
 
 historyl = hl.History()
 cavasl = hl.Canvas()
-print (f'original MSE loss on test data: {criterion (X_noisy_test, X_test)}')
+print (
+    f'original MMSE loss on test data: {torch.sqrt(criterion (X_noisy_test, X_test)).item():.4f}'
+)
 # Training loop
-num_epochs = 10000
+num_epochs = 40
 for epoch in range(num_epochs):
     train_loss_epoch = 0
+    test_loss_epoch = 0
+    train_num = 0
+    test_num = 0
+
     for step, (_X, _Y) in enumerate(train):
         _X = _X.contiguous().view(-1, 2, 16, train.batch_size).to(device)
+
+        # print (_X.shape)
         _Y = _Y.contiguous().view(-1, 2, 16, train.batch_size).to(device)
-    # Forward pass
         outputs = model(_X)
         loss = criterion(outputs, _Y)
-        train_loss_epoch += loss
+        train_num += 1
 
         # Backward and optimize
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+        loss_mmse = torch.sqrt(loss)
+        train_loss_epoch += loss_mmse
+
+    for step, (_X_test, _Y_test) in enumerate(test):
+        _X_test = _X_test.contiguous().view(-1, 2, 16, test.batch_size).to(device)
+        _Y_test = _Y_test.contiguous().view(-1, 2, 16, test.batch_size).to(device)
+        out = model(_X_test)
+
+        out = out.reshape(test.batch_size, 2, 16, symbol_num, 4).permute(0, 3, 2, 4, 1)
+        _Y_test = _Y_test.reshape(test.batch_size, 2, 16, symbol_num, 4).permute(0, 3, 2, 4, 1)
+        _loss = criterion(out, _Y_test)
+
+        test_loss_epoch += torch.sqrt(_loss)
+        test_num += 1
+
 
     if (epoch+1) % 1 == 0:
-            print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {train_loss_epoch / (step+1):.4f}')
-    
+        print ('- - - - - - - - - - - - - - - -')
+        print(f'Epoch [{epoch+1}/{num_epochs}],Train Loss: {train_loss_epoch / (train_num):.4f}')
+        print(f'Epoch [{epoch+1}/{num_epochs}],Test Loss: {test_loss_epoch / (test_num):.4f}')
+        print ('\n')
+
     historyl.log(
         epoch,
-        loss = loss
+        train = train_loss_epoch / (train_num),
+        test = test_loss_epoch / (test_num),
+        LS_test = torch.sqrt(criterion (X_noisy_test, X_test)).item()
     )
 
     cavasl.draw_plot(
-        historyl['loss']
+        [
+            historyl['train'],
+            historyl['test'],
+            historyl['LS_test']
+        ],
+        _title = 'MMSE of CSI for training and testing sample',
+        ylabel = 'MMSE'
     )
-out = model(X_noisy_test)
-print (criterion(out, X_test).item())
-print('Finished Training')
+
+    cavasl.save('./results/training_CE.png', dpi = 300)
+torch.save(model.state_dict(), './model/simo_isac_denoising.pt')
