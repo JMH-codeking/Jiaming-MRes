@@ -1,118 +1,94 @@
-%% first thing
-% Parameters
-numTx = 2; % Number of transmit antennas
-numRx = 12; % Number of receive antennas
-numPaths = 1; % Number of paths
-pathDelays = 1e-6; % Delay for each path
-avgPathGains = -10; % Average gain for each path in dB
+%% 
+clear; clc;
+SNR = 10;
+delete (gca)
+theta = pi/2 * rand;
+phi = theta; % steering angles
+Nr = 4; % receive antennas
+Nt = 1; % transmit antennas
+M = 64; % number of subcarrier
+K = 20; % 1000 OFDM symbols
+fc = 3e9; % assume central frequency is 3 x 10^8 MHz
+lambda = 3e8 / fc;
+d = lambda / 2;
+scs = 20e3;        % Subcarrier spacing in Hz
+Fs = scs * M/2; % Sampling rate (1.28e6 Hz)
+Ts = 1 / Fs;       % Sample duration in seconds  
 
-% Create MIMO channel object
-mimoChan = comm.MIMOChannel( ...
-    'SampleRate', 1e6, ... % Sample rate
-    'PathDelays', pathDelays, ...
-    'AveragePathGains', avgPathGains, ...
-    "SpatialCorrelationSpecification",  "None", ...
-    'NumReceiveAntennas', numRx, ...
-    'FadingDistribution', 'Rayleigh', ...
-    'NumTransmitAntennas', numTx, ...
-    'RandomStream', 'mt19937ar with seed', ...
-    'Seed', 22);
+L = 1; % assume line of sight -> only one path, no multipath
+f_doppler_l = 0; 
+% assume LOS -> and target static -> we know the doppler shift at first
+b_l = complex(randn(L, 1), randn(L, 1)); % attenuation for each multi-path
+tau_l = 1e-9 * round(rand(L, 1), 2); % time delay for each multi-path
 
-% Create random symbols to send
-x = randi([0 1], 1000, numTx);
+data = randi([0 3], M * Nt * K, 1);
 
-% Pass symbols through channel
-y = mimoChan(x);
+y = zeros(K, M, Nr);
+x_nk = pskmod(data, 4, pi/4); % one OFDM symbol at one subcarrier carries one QPSK modulated symbol
+x_nk = reshape(x_nk, K, M, Nt);
+y_n = zeros(K, M, Nr);
+h = zeros(K, M, Nr, Nt);
 
-% y now contains the received symbols with channel effects
-% pathGains contains the actual path gains used by the channel
-
-%% second simulation
-clc; clear;
-% Channel parameters
-numTaps = 3;  % Number of taps
-numTxAntennas = 4;  % Number of transmit antennas
-numRxAntennas = 4;  % Number of receive antennas
-
-% Generate random phase, gain, and delay values for each tap and antenna
-phases = rand(numTaps, numRxAntennas);
-gains = rand(numTaps, numRxAntennas);
-delays = rand(1, numTaps);
-
-% Impulse response initialization
-impulseResponse = zeros(numTaps, numTxAntennas, numRxAntennas);
-
-% Generate impulse response for each tap, transmit antenna, and receive antenna
-for tap = 1:numTaps
-    for txAntenna = 1:numTxAntennas
-        for rxAntenna = 1:numRxAntennas
-            impulseResponse(tap, txAntenna, rxAntenna) = gains(tap, rxAntenna) ...
-                * exp(1i * phases(tap, rxAntenna)) ...
-                * (tap-1) * delays(tap);  % Delay scaling
-        end
+for k = 1:K
+    for n = 1:M
+        steering_vec_r = steering_vec_gen(Nt, theta, d, lambda);
+        steering_vec_t = steering_vec_gen(Nr, phi, d, lambda);
+        x_hat_nk = reshape(x_nk(k, n, :), Nt, 1);
+        y(k, n, :) = b_l * exp(-1j * 2*pi * n * fc * tau_l) * exp(1j * 2*pi * Ts * k * f_doppler_l) ...
+            * steering_vec_r * steering_vec_t.' * x_hat_nk;
+        h(k, n, :, :) = b_l * exp(-1j * 2*pi * n* fc * tau_l) * exp(1j * 2*pi * Ts * k * f_doppler_l) ...
+            * steering_vec_r * steering_vec_t.';
+        P_n = abs(y(1, 1, 1)) / (10^(SNR/10));
+        y_n(k, n, :) = y(k, n, :) + sqrt(P_n) * complex(randn(1, 1, Nr), randn(1, 1, Nr));
     end
 end
+y_n_0 = y_n(:, 1, :);
+y_n = reshape(y_n_0, K, Nr).';
+% calculate covariance matrix
+Rxx= y_n*y_n'/K;
+    
+    %%
+[EV,D]=eig(Rxx);                   % decomposition
+EVA=diag(D)';                      
+[EVA,I]=sort(EVA);                 
+EV=fliplr(EV(:,I));                
+derad = pi/180;      % degree -> radians 
+cnt = 0;
 
-% Display the impulse response
-disp('Impulse Response:');
-disp(impulseResponse);
+% precision for angle scanning
+aaa = 0;
+    
+% precision for time_delay scanning
+precision = 0.001;
+% scan through the time_delays and generate a spectrum
+a = steering_vec_gen(Nr, theta, d, lambda);
 
-%% pulse shaping
-clc; clear;
-% Define input parameters
-inputSignal = [1 0 1 1 0 1];  % Example input signal
-pulseShape = [0.25 0.5 1 0.5 0.25];  % Example pulse shaping filter (raised cosine)
-delays = 1e-6;  % Example delays for each tap
+for itd = 0:precision:1
 
-% Apply pulse shaping with delays
-shapedSignal = pulseShapingWithDelays(inputSignal, pulseShape, delays);
+    aaa = aaa+1;
+    time_delay(aaa)=itd;
+    td = exp(-1j * 2*pi * 1e-9 * fc * itd) * a;
+    En=EV(:, 2:end);                   % take the Nt+1 to Nr element of the matrix to form a subspace
+    Pmusic(aaa)=1/(td' * (En * En') * td);
 
-% Display the results
-disp('Input Signal:');
-disp(inputSignal);
-
-disp('Shaped Signal:');
-disp(shapedSignal);
-
-%% pulse shape evaluated at time t
-clc; clear;
-t = 0.2;   % Time
-T = 1;     % Symbol duration
-
-pulseValue = evaluatePulseShape(t, T);
-disp('Pulse Shape at t = 0.2:');
-disp(pulseValue);
-
-
-
-%% functions
-function pulseValue = evaluatePulseShape(t, T)
-    if abs(t) <= T
-        pulseValue = 0.5*(cos(pi*t/T) + 1);
-    else
-        pulseValue = 0;
-    end
 end
+Pmusic = abs(Pmusic);
+Pmmax = max(Pmusic)';
+Pmusic=10*log10(Pmusic/Pmmax);          % logarithm operation
 
-function shapedSignal = pulseShapingWithDelays(inputSignal, pulseShape, delays)
-    % Input:
-    %   - inputSignal: Input signal to be shaped
-    %   - pulseShape: Pulse shaping filter coefficients (e.g., raised cosine)
-    %   - delays: Array of delays for each tap (in number of samples)
-    %
-    % Output:
-    %   - shapedSignal: Output signal after pulse shaping with delays
+[m, p] = max(Pmusic);
+error_6dB(aaa) = abs(p*precision - theta / derad);
 
-    % Determine the length of the shaped signal based on the input signal and delays
-    shapedLength = length(inputSignal) + max(delays);
-
-    % Initialize the shaped signal with zeros
-    shapedSignal = zeros(1, shapedLength);
-
-    % Apply pulse shaping with delays
-    for i = 1:length(inputSignal)
-        for j = 1:length(pulseShape)
-            shapedSignal(i + delays) = shapedSignal(i + delays) + inputSignal(i) * pulseShape(j);
-        end
-    end
-end
+%%
+h=plot(time_delay,Pmusic, '-o', 'MarkerIndices', p, 'MarkerFaceColor', 'red', 'MarkerSize',15);
+% hold on;
+% line([tau_l / 1e-8, tau_l / 1e-8], [-40, m], 'linestyle', ':', 'linewidth', 2.5)
+set(h,'Linewidth',2);
+xlabel('time delay (ns)');
+ylabel('Space Spectrum (dB)');
+line([tau_l/1e-9, tau_l/1e-9], [-25, m], 'linestyle', ':', 'linewidth', 2.5)
+% legend ('MUSIC', 'True Value');
+title('MUSIC AOA Scanning')
+legend ('MUSIC', 'True Value');
+set(gca, 'XTick',0:0.1:1, 'FontSize', 30, 'LineWidth', 1.5);
+grid on;
